@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="tw">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="icon" type="image/png" href="./img/icon.png" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"></script>
+    <link rel="stylesheet" href="./css/style.min.css" />
+    <title>BMI 計算機</title>
+  </head>
+
+  <body>
+    <div id="app">
+      <div class="container-fluid header">
+        <div class="row">
+          <div class="col-12 col-sm-4">
+            <img src="./img/BMICLogo.png" alt="BMICLogo" />
+          </div>
+          <div class="col-6 col-sm-4">
+            <label for="inputName">姓名</label>
+            <input type="text" placeholder="請輸入姓名" v-model="inputName" :disabled="disabled" />
+            <label for="inputHeight">身高 cm</label>
+            <input type="text" placeholder="請輸入身高" v-model="inputHeight" :disabled="disabled" />
+            <label for="inputWeight">體重 kg</label>
+            <input type="text" placeholder="請輸入體重" v-model="inputWeight" :disabled="disabled" />
+          </div>
+          <div class="col-6 col-sm-4">
+            <p id="btnResult" class="result" v-on:click="btnResult">看結果</p>
+            <div id="btnJudge" class="result_" v-on:click="btnResultDisplay">
+              <p>{{ upload.BMI }}</p>
+              <p>BMI</p>
+              <p><img class="loop" src="./img/icons_loop.png" alt="loop" /></p>
+              <p>{{ upload.judge }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="container">
+        <p>BMI 紀錄</p>
+        <p style="color: red;font-size: 15px">!~資料庫已移除，頁面上為假資料渲染~!</p>
+        <p style="color: red;font-size: 15px">詳細請參閱程式註記</p>
+        <table class="table table-borderless" v-for="item in store">
+          <tr>
+            <td rowspan="3" :class="item.judgeColor"></td>
+            <td rowspan="3">{{ item.judge }}</td>
+            <td>姓名</td>
+            <td>BMI</td>
+            <td>Height</td>
+            <td>Weight</td>
+          </tr>
+          <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.BMI }}</td>
+            <td>{{ item.height }} cm</td>
+            <td>{{ item.weight }} kg</td>
+          </tr>
+          <tr>
+            <td colspan="6" class="text-right">{{ item.timeShot }}</td>
+          </tr>
+        </table>
+      </div>
+      <div class="container-fluid footer">
+        <div class="row">
+          <div class="col-12 text-center">
+            <img src="./img/BMICLogo_footer.png" alt="BMICLogo" />
+            <p>Copyright 2019 趙德柱 All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/6.0.1/firebase-database.js"></script>
+    <script>
+      //至firebase專案設定之Firebase SDK snippet複製CDN
+      // var firebaseConfig = {
+      //   apiKey: '',
+      //   authDomain: '',
+      //   databaseURL: '',
+      //   projectId: '',
+      //   storageBucket: '',
+      //   messagingSenderId: '',
+      //   appId: '',
+      // };
+      //初始化資料庫
+      // firebase.initializeApp(firebaseConfig);
+      /*------------------時間處理------------------*/
+      const now = new Date();
+      //西元年
+      const year = now.getFullYear();
+      //民國年
+      const yearROC = now.getFullYear() - 1911;
+      //月份
+      const mon = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+      const month = mon[now.getMonth()];
+      //日期
+      const day = now.getDate() < 10 ? '0' + now.getDate() : now.getDate();
+      //星期
+      const weeks = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+      const week = weeks[now.getDay()];
+      //小時
+      const hour = now.getHours() < 10 ? '0' + now.getHours() : now.getHours();
+      //分鐘
+      const minutes = now.getMinutes() < 10 ? '0' + now.getMinutes() : now.getMinutes();
+      //秒鐘
+      const seconds = now.getSeconds() < 10 ? '0' + now.getSeconds() : now.getSeconds();
+      //資料庫路徑
+      // const ref_BMI = firebase.database().ref('BMI');
+      //Vue JS
+      let app = new Vue({
+        el: '#app',
+        data: {
+          inputName: '',
+          inputHeight: '',
+          inputWeight: '',
+          disabled: false,
+          upload: {
+            name: '',
+            height: 0,
+            weight: 0,
+            BMI: 0,
+            judge: '',
+            judgeColor: '',
+            timeShot: '',
+          },
+          calculate: {
+            height: 0,
+            weight: 0,
+            BMI: 0,
+            judge: '',
+          },
+          // store: {}, //如果竄接資料庫用空直，載入資料庫資料
+          //此處只是模擬資料庫的形式，當有資料庫可註記或刪除
+          store: {
+            '-LlRRyAEoPJ--CxK7TPE': {
+              BMI: '22.31',
+              height: '164.0',
+              judge: '理想體重',
+              judgeColor: 'ideal_color',
+              name: 'Justin',
+              timeShot: '108年08月04日 星期日 19:46:10',
+              weight: '60.0',
+            },
+            '-LlRXLcjssm3pO6Knc2K': {
+              BMI: '29.38',
+              height: '175.0',
+              judge: '中度肥胖',
+              judgeColor: 'mildFat_color',
+              name: 'Sam',
+              timeShot: '108年08月04日 星期日 20:09:41',
+              weight: '90.0',
+            },
+            '-LlUETdhM1neRJlXAU8G': {
+              BMI: '18.17',
+              height: '174.0',
+              judge: '體重過輕',
+              judgeColor: 'light_color',
+              name: 'Jack',
+              timeShot: '108年08月05日 星期一 08:39:19',
+              weight: '55.0',
+            },
+            '-LlUnWyBdoso04UttpQQ': {
+              BMI: '26.12',
+              height: '175.5',
+              judge: '體重過重',
+              judgeColor: 'heavy_color',
+              name: 'Jan',
+              timeShot: '108年08月05日 星期一 11:23:38',
+              weight: '80.0',
+            },
+            '-Lm97n_oqDYmjg-17dUi': {
+              BMI: '38.78',
+              height: '190.5',
+              judge: '重度肥胖',
+              judgeColor: 'severeFat_color',
+              name: 'Peter',
+              timeShot: '108年08月13日 星期二 16:38:33',
+              weight: '140.0',
+            },
+          },
+        },
+        methods: {
+          btnResult: function() {
+            if (app.inputName == '' || app.inputHeight == '' || app.inputWeight == '') {
+              alert('資料有缺');
+            } else {
+              if (isNaN(app.inputHeight) || isNaN(app.inputWeight)) {
+                alert('數值輸入錯誤');
+              } else {
+                if (app.inputName.length > 9) {
+                  alert('名字請勿大於9個字');
+                } else if (app.inputName == '蔡華岳') {
+                  alert('想我嘛？');
+                } else if (app.inputHeight > 200 || app.inputHeight < 100) {
+                  alert('這身高你確定？');
+                } else if (app.inputWeight > 150 || app.inputWeight < 30) {
+                  alert('這體重你確定？');
+                } else {
+                  //運算BMI
+                  app.calculate.height = parseFloat(app.inputHeight);
+                  app.calculate.weight = parseFloat(app.inputWeight);
+                  app.calculate.BMI =
+                    app.calculate.weight / Math.pow(app.calculate.height / 100, 2) < 10 ? '0' : app.calculate.weight / Math.pow(app.calculate.height / 100, 2);
+                  //處理要存入資料庫之資料
+                  app.upload.name = app.inputName;
+                  app.upload.height = app.calculate.height.toFixed(1);
+                  app.upload.weight = app.calculate.weight.toFixed(1);
+                  app.upload.BMI = app.calculate.BMI.toFixed(2);
+                  app.upload.timeShot = yearROC + '年' + month + '月' + day + '日' + ' ' + week + ' ' + hour + ':' + minutes + ':' + seconds;
+                  //畫面處理
+                  document.getElementById('btnResult').setAttribute('class', 'result result_active');
+                  setTimeout(function() {
+                    document.getElementById('btnResult').classList.add('btnFadeOut');
+                  }, 500);
+                  setTimeout(function() {
+                    document.getElementById('btnResult').setAttribute('class', 'result_');
+                  }, 800);
+                  setTimeout(function() {
+                    //判斷區間並賦值
+                    switch (true) {
+                      case app.calculate.BMI < 18.5:
+                        app.upload.judge = '體重過輕';
+                        app.upload.judgeColor = 'light_color';
+                        document.getElementById('btnJudge').setAttribute('class', 'result_light resultFadeIn');
+                        setTimeout(function() {
+                          document.getElementById('btnJudge').setAttribute('class', 'result_light');
+                        }, 1200);
+                        break;
+                      case app.calculate.BMI >= 18.5 && app.calculate.BMI < 24:
+                        app.upload.judge = '理想體重';
+                        app.upload.judgeColor = 'ideal_color';
+                        document.getElementById('btnJudge').setAttribute('class', 'result_ideal resultFadeIn');
+                        setTimeout(function() {
+                          document.getElementById('btnJudge').setAttribute('class', 'result_ideal');
+                        }, 1200);
+                        break;
+                      case app.calculate.BMI >= 24 && app.calculate.BMI < 27:
+                        app.upload.judge = '體重過重';
+                        app.upload.judgeColor = 'heavy_color';
+                        document.getElementById('btnJudge').setAttribute('class', 'result_heavy resultFadeIn');
+                        setTimeout(function() {
+                          document.getElementById('btnJudge').setAttribute('class', 'result_heavy');
+                        }, 1200);
+                        break;
+                      case app.calculate.BMI >= 27 && app.calculate.BMI < 30:
+                        app.upload.judge = '輕度肥胖';
+                        app.upload.judgeColor = 'mildFat_color';
+                        document.getElementById('btnJudge').setAttribute('class', 'result_mildFat resultFadeIn');
+                        setTimeout(function() {
+                          document.getElementById('btnJudge').setAttribute('class', 'result_mildFat');
+                        }, 1200);
+                        break;
+                      case app.calculate.BMI >= 30 && app.calculate.BMI < 35:
+                        app.upload.judge = '中度肥胖';
+                        app.upload.judgeColor = 'mildFat_color';
+                        document.getElementById('btnJudge').setAttribute('class', 'result_mildFat resultFadeIn');
+                        setTimeout(function() {
+                          document.getElementById('btnJudge').setAttribute('class', 'result_mildFat');
+                        }, 1200);
+                        break;
+                      case app.calculate.BMI >= 35:
+                        app.upload.judge = '重度肥胖';
+                        app.upload.judgeColor = 'severeFat_color';
+                        document.getElementById('btnJudge').setAttribute('class', 'result_severeFat resultFadeIn');
+                        setTimeout(function() {
+                          document.getElementById('btnJudge').setAttribute('class', 'result_severeFat');
+                        }, 1200);
+                        break;
+                    }
+                    app.inputName = '';
+                    app.inputHeight = '';
+                    app.inputWeight = '';
+                    app.disabled = true;
+                    //紀錄至資料庫
+                    // ref_BMI.push().set({
+                    //   name: app.upload.name,
+                    //   BMI: app.upload.BMI,
+                    //   judge: app.upload.judge,
+                    //   judgeColor: app.upload.judgeColor,
+                    //   height: app.upload.height,
+                    //   weight: app.upload.weight,
+                    //   timeShot: app.upload.timeShot,
+                    // });
+                  }, 1000);
+                  //監聽資料庫回傳取得數值並做陣列反轉
+                  // ref_BMI.on('value', function(snapshot) {
+                  //   let eachData = [];
+                  //   snapshot.forEach(function(item) {
+                  //     eachData.push(item.val());
+                  //   });
+                  //   app.store = eachData.reverse();
+                  // });
+                }
+              }
+            }
+          },
+          btnResultDisplay: function() {
+            setTimeout(function() {
+              document.getElementById('btnJudge').classList.add('btnFadeOut');
+            }, 500);
+            setTimeout(function() {
+              document.getElementById('btnJudge').setAttribute('class', 'result_');
+            }, 800);
+            setTimeout(function() {
+              document.getElementById('btnResult').setAttribute('class', 'result');
+              app.disabled = false;
+            }, 1000);
+          },
+        },
+        //創建Vue前先去監聽資料庫
+        // beforeCreate: function() {
+        //   回傳取得數值並做陣列反轉;
+        //   ref_BMI.on('value', function(snapshot) {
+        //     console.log(snapshot.val());
+        //     let eachData = [];
+        //     snapshot.forEach(function(item) {
+        //       eachData.push(item.val());
+        //     });
+        //     app.store = eachData.reverse();
+        //   });
+        // },
+      });
+    </script>
+  </body>
+</html>
